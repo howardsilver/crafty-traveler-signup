@@ -589,13 +589,12 @@
       <button class="modal-close" onclick="closeModal()">✕</button>
     </div>
     <p class="modal-instructions">
-      Tap <strong>Select All</strong> to highlight everything, then tap <strong>Copy</strong>.<br>
-      Paste into Notes, Mail, or Google Sheets on your iPad.
+      Tap <strong>Select All</strong> below, then tap <strong>Copy</strong> from the menu that pops up above the text.<br>
+      Then paste into Notes, Mail, or Google Sheets.
     </p>
-    <textarea class="csv-box" id="csv-box" readonly></textarea>
+    <textarea class="csv-box" id="csv-box" autocorrect="off" autocapitalize="none" spellcheck="false"></textarea>
     <div class="modal-actions">
-      <button class="select-btn" onclick="selectAll()">Select All</button>
-      <button class="copy-btn" onclick="copyCSV()">Copy</button>
+      <button class="copy-btn" onclick="selectAll()">Select All</button>
     </div>
   </div>
 </div>
@@ -659,41 +658,10 @@ function handleOverlayClick(e) {
 function selectAll() {
   const box = document.getElementById('csv-box');
   box.focus();
-  box.select();
-  // iOS fallback
-  if (window.getSelection) {
-    const range = document.createRange();
-    range.selectNodeContents(box);
-    const sel = window.getSelection();
-    sel.removeAllRanges();
-    sel.addRange(range);
-  }
-  showToast('All text selected — tap Copy to copy it.');
+  box.setSelectionRange(0, box.value.length);
+  showToast('Text selected — tap Copy from the menu above.');
 }
 
-function copyCSV() {
-  const box = document.getElementById('csv-box');
-  box.select();
-  const text = box.value;
-  if (navigator.clipboard && navigator.clipboard.writeText) {
-    navigator.clipboard.writeText(text)
-      .then(() => showToast('Copied! Paste into Notes, Mail, or Sheets.'))
-      .catch(() => fallbackCopy(box));
-  } else {
-    fallbackCopy(box);
-  }
-}
-
-function fallbackCopy(box) {
-  box.focus();
-  box.select();
-  try {
-    document.execCommand('copy');
-    showToast('Copied! Paste into Notes, Mail, or Sheets.');
-  } catch(e) {
-    showToast('Tap Select All, then use Edit → Copy.');
-  }
-}
 
 function showToast(msg) {
   const t = document.getElementById('toast');
