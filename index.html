@@ -336,6 +336,143 @@
   .ring-fg { fill: none; stroke: var(--accent); stroke-width: 3; stroke-linecap: round;
              stroke-dasharray: 88; stroke-dashoffset: 0; transition: stroke-dashoffset 1s linear; }
 
+  /* ── Export modal ── */
+  .modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(20, 20, 40, 0.55);
+    z-index: 100;
+    align-items: flex-end;
+    justify-content: center;
+    padding: 0;
+  }
+
+  .modal-overlay.visible { display: flex; }
+
+  .modal {
+    background: var(--card);
+    border-radius: 24px 24px 0 0;
+    width: 100%;
+    max-width: 700px;
+    padding: 28px 28px 44px;
+    animation: slideUp 0.3s cubic-bezier(0.32, 0.72, 0, 1) both;
+    max-height: 80vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  @keyframes slideUp {
+    from { transform: translateY(100%); }
+    to   { transform: translateY(0); }
+  }
+
+  .modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 8px;
+    flex-shrink: 0;
+  }
+
+  .modal-title {
+    font-family: 'DM Serif Display', Georgia, serif;
+    font-size: 20px;
+    font-weight: 400;
+    color: var(--ink);
+  }
+
+  .modal-close {
+    background: var(--surface);
+    border: none;
+    border-radius: 50%;
+    width: 36px;
+    height: 36px;
+    font-size: 20px;
+    color: var(--ink-muted);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+    flex-shrink: 0;
+  }
+
+  .modal-instructions {
+    font-size: 14px;
+    color: var(--ink-muted);
+    margin-bottom: 16px;
+    line-height: 1.6;
+    flex-shrink: 0;
+  }
+
+  .modal-instructions strong {
+    color: var(--accent);
+    font-weight: 500;
+  }
+
+  .csv-box {
+    font-family: 'Courier New', Courier, monospace;
+    font-size: 13px;
+    line-height: 1.7;
+    color: var(--ink);
+    background: var(--surface);
+    border: 1.5px solid var(--border);
+    border-radius: 12px;
+    padding: 16px;
+    width: 100%;
+    flex: 1;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    resize: none;
+    outline: none;
+    -webkit-user-select: all;
+    user-select: all;
+  }
+
+  .modal-actions {
+    display: flex;
+    gap: 12px;
+    margin-top: 16px;
+    flex-shrink: 0;
+  }
+
+  .copy-btn {
+    flex: 1;
+    background: var(--accent);
+    color: white;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 16px;
+    font-weight: 500;
+    border: none;
+    border-radius: 12px;
+    padding: 16px;
+    cursor: pointer;
+    -webkit-appearance: none;
+    appearance: none;
+    transition: background 0.15s;
+  }
+
+  .copy-btn:active { background: #153d86; }
+
+  .select-btn {
+    flex: 1;
+    background: var(--accent-light);
+    color: var(--accent);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 16px;
+    font-weight: 500;
+    border: 1.5px solid var(--accent-mid);
+    border-radius: 12px;
+    padding: 16px;
+    cursor: pointer;
+    -webkit-appearance: none;
+    appearance: none;
+    transition: background 0.15s;
+  }
+
+  .select-btn:active { background: #d0dcf5; }
+
   /* ── Export feedback ── */
   .toast {
     position: fixed;
@@ -444,6 +581,25 @@
 
 </main>
 
+<!-- Admin Export modal -->
+<div class="modal-overlay" id="export-modal" onclick="handleOverlayClick(event)">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">Admin Export</div>
+      <button class="modal-close" onclick="closeModal()">✕</button>
+    </div>
+    <p class="modal-instructions">
+      Tap <strong>Select All</strong> to highlight everything, then tap <strong>Copy</strong>.<br>
+      Paste into Notes, Mail, or Google Sheets on your iPad.
+    </p>
+    <textarea class="csv-box" id="csv-box" readonly></textarea>
+    <div class="modal-actions">
+      <button class="select-btn" onclick="selectAll()">Select All</button>
+      <button class="copy-btn" onclick="copyCSV()">Copy</button>
+    </div>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script>
@@ -473,29 +629,70 @@ function sanitize(str) {
   return '"' + String(str || '').replace(/"/g, '""') + '"';
 }
 
+function buildCSV() {
+  const entries = getEntries();
+  const header = 'First Name,Last Name,Email,Comment,Registered At';
+  const rows = entries.map(e =>
+    [sanitize(e.firstName), sanitize(e.lastName), sanitize(e.email), sanitize(e.comment), sanitize(e.timestamp)].join(',')
+  );
+  return [header, ...rows].join('\n');
+}
+
 function exportCSV() {
   const entries = getEntries();
   if (entries.length === 0) {
     showToast('No registrations to export yet.');
     return;
   }
-  const header = 'First Name,Last Name,Email,Comment,Registered At';
-  const rows = entries.map(e =>
-    [sanitize(e.firstName), sanitize(e.lastName), sanitize(e.email), sanitize(e.comment), sanitize(e.timestamp)].join(',')
-  );
-  const csv = [header, ...rows].join('\n');
-  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  const now = new Date();
-  const dateStr = now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0') + '-' + String(now.getDate()).padStart(2,'0');
-  a.download = 'mailing_list_' + dateStr + '.csv';
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
-  showToast('Saved ' + entries.length + ' registration' + (entries.length !== 1 ? 's' : '') + ' to CSV.');
+  document.getElementById('csv-box').value = buildCSV();
+  document.getElementById('export-modal').classList.add('visible');
+}
+
+function closeModal() {
+  document.getElementById('export-modal').classList.remove('visible');
+}
+
+function handleOverlayClick(e) {
+  if (e.target === document.getElementById('export-modal')) closeModal();
+}
+
+function selectAll() {
+  const box = document.getElementById('csv-box');
+  box.focus();
+  box.select();
+  // iOS fallback
+  if (window.getSelection) {
+    const range = document.createRange();
+    range.selectNodeContents(box);
+    const sel = window.getSelection();
+    sel.removeAllRanges();
+    sel.addRange(range);
+  }
+  showToast('All text selected — tap Copy to copy it.');
+}
+
+function copyCSV() {
+  const box = document.getElementById('csv-box');
+  box.select();
+  const text = box.value;
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text)
+      .then(() => showToast('Copied! Paste into Notes, Mail, or Sheets.'))
+      .catch(() => fallbackCopy(box));
+  } else {
+    fallbackCopy(box);
+  }
+}
+
+function fallbackCopy(box) {
+  box.focus();
+  box.select();
+  try {
+    document.execCommand('copy');
+    showToast('Copied! Paste into Notes, Mail, or Sheets.');
+  } catch(e) {
+    showToast('Tap Select All, then use Edit → Copy.');
+  }
 }
 
 function showToast(msg) {
